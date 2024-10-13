@@ -420,7 +420,7 @@ class FinalImageManager:
             src = srcPoints[i]
             dst = dstPoints[i]
             mapped = self.applyHomographyToPoint(homography, src[0], src[1])
-            print(f"Point {src} mapped to {mapped}, Expected: {dst}")
+            # print(f"Point {src} mapped to {mapped}, Expected: {dst}")
 
         return homography
 
@@ -479,7 +479,7 @@ class FinalImageManager:
         H_matrix = H.reshape((3, 3))
         invH_matrix = invH.reshape((3, 3))
         identity = np.dot(H_matrix, invH_matrix)
-        print("H * invH =\n", identity)
+        # print("H * invH =\n", identity)
 
         return invH
 
