@@ -131,79 +131,6 @@ class FinalImageManager:
         data = resized_data
         height, width = data.shape[:2]
 
-    def erosion(self, se):
-        self.convertToGray()
-        
-        # Zero-padding [height + 2*se.height, width + 2*se.width, 3]
-        pad_y, pad_x = se.origin
-        padded_data = np.zeros((height + 2 * pad_y, width + 2 * pad_x, 3), dtype=data.dtype)
-        padded_data[pad_y:pad_y + height, pad_x:pad_x + width, :] = data
-
-        eroded_data = np.zeros_like(data)
-
-        for y in range(pad_y, pad_y + height):
-            for x in range(pad_x, pad_x + width):
-                # Extract the region of interest
-                subData = padded_data[y - pad_y:y + se.height - pad_y, x - pad_x:x + se.width - pad_x, 0]
-
-                # Apply ignore elements if any
-                for point in se.ignoreElements:
-                    subData[int(point[0]), int(point[1])] = se.elements[int(point[0]), int(point[1])]
-
-                # Check if the structuring element fits
-                if np.array_equal(subData, se.elements):
-                    # Set to minimum value (assuming binary image: 0)
-                    eroded_data[y - pad_y, x - pad_x] = 0
-                else:
-                    # Otherwise, keep the pixel as is (or set to background)
-                    eroded_data[y - pad_y, x - pad_x] = 255
-
-        # Update the image data
-        data[:, :, 0] = eroded_data
-        data[:, :, 1] = eroded_data
-        data[:, :, 2] = eroded_data
-
-    def dilation(self, se):
-        self.convertToGray()
-        
-        # Zero-padding [height + 2*se.height, width + 2*se.width, 3]
-        pad_y, pad_x = se.origin
-        padded_data = np.zeros((height + 2 * pad_y, width + 2 * pad_x, 3), dtype=data.dtype)
-        padded_data[pad_y:pad_y + height, pad_x:pad_x + width, :] = data
-
-        dilated_data = np.zeros_like(data)
-
-        for y in range(pad_y, pad_y + height):
-            for x in range(pad_x, pad_x + width):
-                # Extract the region of interest
-                subData = padded_data[y - pad_y:y + se.height - pad_y, x - pad_x:x + se.width - pad_x, 0]
-
-                # Apply ignore elements if any
-                for point in se.ignoreElements:
-                    subData[int(point[0]), int(point[1])] = se.elements[int(point[0]), int(point[1])]
-
-                # Check if any element in the structuring element matches
-                if np.any(subData & se.elements):
-                    # Set to maximum value (assuming binary image: 255)
-                    dilated_data[y - pad_y, x - pad_x] = 255
-                else:
-                    # Otherwise, keep the pixel as is (or set to background)
-                    dilated_data[y - pad_y, x - pad_x] = 0
-
-        # Update the image data
-        data[:, :, 0] = dilated_data
-        data[:, :, 1] = dilated_data
-        data[:, :, 2] = dilated_data
-
-    def removeSaltPepperNoise(self, se):
-        self.erosion(se)
-        
-        self.dilation(se)
-
-        self.dilation(se)
-
-        self.erosion(se)
-
     def linearSpatialFilter(self, kernel, size):
         global data
 
@@ -233,116 +160,6 @@ class FinalImageManager:
                 data[y - int(size/2), x - int(size/2), 0] = sumRed
                 data[y - int(size/2), x - int(size/2), 1] = sumGreen
                 data[y - int(size/2), x - int(size/2), 2] = sumBlue   
-
-    # def cannyEdgeDetector(self, lower, upper):
-    #     global data
-    #     #Step 1 - Apply 5 x 5 Gaussian filter
-    #     gaussian = [2.0 / 159.0, 4.0 / 159.0, 5.0 / 159.0, 4.0 / 159.0, 2.0 / 159.0,
-    #     4.0 / 159.0, 9.0 / 159.0, 12.0 / 159.0, 9.0 / 159.0, 4.0 / 159.0,
-    #     5.0 / 159.0, 12.0 / 159.0, 15.0 / 159.0, 12.0 / 159.0, 5.0 / 159.0,
-    #     4.0 / 159.0, 9.0 / 159.0, 12.0 / 159.0, 9.0 / 159.0, 4.0 / 159.0,
-    #     2.0 / 159.0, 4.0 / 159.0, 5.0 / 159.0, 4.0 / 159.0, 2.0 / 159.0]
-        
-    #     self.linearSpatialFilter(gaussian, 5)
-    #     self.convertToGray()
-
-    #     #Step 2 - Find intensity gradient
-    #     sobelX = [ 1, 0, -1,
-    #                 2, 0, -2,
-    #                 1, 0, -1]
-    #     sobelY = [ 1, 2, 1,
-    #                 0, 0, 0,
-    #                 -1, -2, -1]
-
-    #     magnitude = np.zeros([width, height])
-    #     direction = np.zeros([width, height])
-        
-    #     data_zeropaded = np.zeros([height + 2, width + 2, 3])
-    #     data_zeropaded[1:height + 1, 1:width + 1, :] = data
-        
-    #     for y in range(1, height + 1):
-    #         for x in range(1, width + 1):
-    #             gx = 0
-    #             gy = 0
-                
-    #             subData = data_zeropaded[x - 1:x + 2, y - 1:y + 2, :]
-                
-    #             gx = np.sum(np.multiply(subData[:,:,0:1].flatten(), sobelX))
-    #             gy = np.sum(np.multiply(subData[:,:,0:1].flatten(), sobelY))
-                
-    #             magnitude[x - 1, y - 1] = math.sqrt(gx * gx + gy * gy)
-    #             direction[x - 1, y - 1] = math.atan2(gy, gx) * 180 / math.pi
-
-    #     #Step 3 - Nonmaxima Suppression
-    #     gn = np.zeros([width, height])
-
-    #     for y in range(1, height + 1):
-    #         for x in range(1, width + 1):
-    #             targetX = 0
-    #             targetY = 0
-
-    #             #find closest direction
-    #             if (direction[x - 1, y - 1] <= -157.5):
-    #                 targetX = 1
-    #                 targetY = 0
-    #             elif (direction[x - 1, y - 1] <= -112.5):
-    #                 targetX = 1
-    #                 targetY = -1
-    #             elif (direction[x - 1, y - 1] <= -67.5):
-    #                 targetX = 0
-    #                 targetY = 1
-    #             elif (direction[x - 1, y - 1] <= -22.5):
-    #                 targetX = 1
-    #                 targetY = 1
-    #             elif (direction[x - 1, y - 1] <= 22.5):
-    #                 targetX = 1
-    #                 targetY = 0
-    #             elif (direction[x - 1, y - 1] <= 67.5):
-    #                 targetX = 1
-    #                 targetY = -1
-    #             elif (direction[x - 1, y - 1] <= 112.5):
-    #                 targetX = 0
-    #                 targetY = 1
-    #             elif (direction[x - 1, y - 1] <= 157.5):
-    #                 targetX = 1
-    #                 targetY = 1
-    #             else:
-    #                 targetX = 1
-    #                 targetY = 0
-
-    #             if (y + targetY >= 0 and y + targetY < height and x + targetX >= 0 and x + targetX < width and magnitude[x - 1, y - 1] < magnitude[x + targetY - 1, y + targetX - 1]):
-    #                 gn[x - 1, y - 1] = 0
-    #             elif (y - targetY >= 0 and y - targetY < height and x - targetX >= 0 and x - targetX < width and magnitude[x - 1, y - 1] < magnitude[x - targetY - 1, y - targetX - 1]):
-    #                 gn[x - 1, y - 1] = 0
-    #             else:
-    #                 gn[x - 1, y - 1] = magnitude[x - 1, y - 1]
-                
-    #             #set back first
-    #             gn[x - 1, y - 1] = 255 if gn[x - 1, y - 1] > 255 else gn[x - 1, y - 1]
-    #             gn[x - 1, y - 1] = 0 if gn[x - 1, y - 1] < 0 else gn[x - 1, y - 1]
-                
-    #             data[x - 1, y - 1, 0] = gn[x - 1, y - 1]
-    #             data[x - 1, y - 1, 1] = gn[x - 1, y - 1]
-    #             data[x - 1, y - 1, 2] = gn[x - 1, y - 1]
-
-
-    #     #upper threshold checking with recursive
-    #     for y in range(height):
-    #         for x in range(width):
-    #             if (data[x, y, 0] >= upper):
-    #                 data[x, y, 0] = 255
-    #                 data[x, y, 1] = 255
-    #                 data[x, y, 2] = 255
-
-    #                 self.hystConnect(x, y, lower)
-
-    #     #clear unwanted values
-    #     for y in range(height):
-    #         for x in range(width):
-    #             if (data[x, y, 0] != 255):
-    #                 data[x, y, 0] = 0
-    #                 data[x, y, 1] = 0
-    #                 data[x, y, 2] = 0
 
     def cannyEdgeDetector(self, lower, upper):
         # Step 1 - Apply 5 x 5 Gaussian filter
@@ -458,7 +275,6 @@ class FinalImageManager:
             for x in range(width):
                 if data[y, x, 0] != 255:
                     data[y, x] = [0, 0, 0]
-
 
     def hystConnect(self, x, y, threshold):
         global data
@@ -667,36 +483,6 @@ class FinalImageManager:
 
         return invH
 
-    # def applyHomography(self, H):
-    #     global data, height, width
-
-    #     data_temp = np.copy(data)
-
-    #     invH = self.invertHomography(H)
-
-    #     for y in range(height):
-    #         for x in range(width):
-    #             # Apply the inverse of the homography to find the corresponding source pixel
-    #             sourcePoint = self.applyHomographyToPoint(invH, x, y)
-                
-    #             srcX = int(round(sourcePoint[0]))
-    #             srcY = int(round(sourcePoint[1]))
-                
-    #             # Debug: แสดงพิกัดต้นทางและปลายทาง
-    #             if (y == 0 and x == 0) or (y == height-1 and x == width-1):
-    #                 print(f"Destination Point: ({x}, {y}) -> Source Point: ({srcX}, {srcY})")
-                
-    #             # Check if the calculated source coordinates are within the source image bounds
-    #             if 0 <= srcX < width and 0 <= srcY < height:
-    #                 # Copy the pixel from the source image to the destination image
-    #                 data_temp[y, x] = data[srcY, srcX]
-    #             else:
-    #                 # If out of bounds, set the destination pixel to a default color
-    #                 data_temp[y, x] = [0, 0, 0]
-
-    #     # Copy the processed image back to the original image
-    #     data = np.copy(data_temp)
-
     def applyHomographyToPoint(self, H, x, y):
         # Homogeneous coordinates calculation after transformation
         xh = H[0] * x + H[1] * y + H[2]
@@ -777,45 +563,168 @@ class FinalImageManager:
                 data[y - k, x - k, 1] = medianGreen
                 data[y - k, x - k, 2] = medianBlue
 
-    def find_connected_components(self):
+    def dot(self, size, x, y):
+        x = x - size/2
+        y = y - size/2
+        for j in range (size):
+            for i in range (size):
+                
+                data[(int)(y + j), (int)(x + i), 1] = 255
+
+    def drawLine(self, axis, value):
+        global data
         global width
         global height
+
+        if axis == "x":
+            for i in range (height):
+                data[i, value, 1] = 255
+
+        if axis == "y":
+            for i in range (width):
+                data[value, i, 1] = 255
+                
+    def getTamplate(self):
+        templates = {
+    '0': np.array([
+        [0,1,1,1,1,1,0],
+        [1,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1],
+        [0,1,1,1,1,1,0]
+    ]),
+    '1': np.array([
+        [0,0,0,1,1,0,0],
+        [0,0,0,0,1,0,0],
+        [0,0,0,0,1,0,0],
+        [0,0,0,0,1,0,0],
+        [0,0,0,0,1,0,0],
+        [0,0,0,1,1,1,1],
+        [0,0,0,1,1,1,1],
+        [0,0,0,1,1,1,1],
+        [0,0,0,1,1,1,1]
+    ]),
+    '2': np.array([
+        [0,0,0,1,1,1,1],
+        [0,0,0,0,0,0,1],
+        [0,0,0,0,0,0,1],
+        [0,0,0,0,0,0,1],
+        [0,0,0,1,1,1,1],
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,1,1,1]
+    ]),
+    '3': np.array([
+        [0,0,1,1,1,1,0],
+        [0,0,0,0,0,1,0],
+        [0,0,0,0,0,1,0],
+        [0,0,0,0,0,1,0],
+        [0,0,1,1,1,1,0],
+        [0,0,0,0,0,1,1],
+        [0,0,0,0,0,1,1],
+        [0,0,0,0,0,1,1],
+        [0,0,1,1,1,1,1]
+    ]),
+    '4': np.array([
+        [0,1,1,0,0,0,0],
+        [0,1,1,0,0,0,0],
+        [0,1,1,0,0,0,0],
+        [0,1,1,0,0,0,0],
+        [0,1,1,0,0,0,0],
+        [0,1,1,0,0,1,1],
+        [0,1,1,1,1,1,1],
+        [0,0,0,0,0,1,1],
+        [0,0,0,0,0,1,1]
+    ]),
+    '5': np.array([
+        [0,0,1,1,1,1,1],
+        [0,0,1,0,0,0,0],
+        [0,0,1,0,0,0,0],
+        [0,0,1,0,0,0,0],
+        [0,0,1,1,1,1,1],
+        [0,0,0,0,0,0,1],
+        [0,0,0,0,0,0,1],
+        [0,0,0,0,0,0,1],
+        [0,0,1,1,1,1,1]
+    ]),
+    '6': np.array([
+        [0,1,1,1,1,0,0],
+        [0,1,0,0,1,0,0],
+        [0,1,0,0,1,0,0],
+        [0,1,0,0,0,0,0],
+        [0,1,0,0,0,0,0],
+        [0,1,1,1,1,1,1],
+        [0,1,0,0,0,0,1],
+        [0,1,0,0,0,0,1],
+        [0,1,1,1,1,1,1]
+    ]),
+    '7': np.array([
+        [0,0,1,1,1,1,1],
+        [0,0,1,0,0,0,1],
+        [0,0,1,0,0,0,1],
+        [0,0,0,0,0,1,1],
+        [0,0,0,0,1,1,0],
+        [0,0,0,0,1,0,0],
+        [0,0,0,0,1,0,0],
+        [0,0,0,0,1,0,0],
+        [0,0,0,0,1,0,0]
+    ]),
+    '8': np.array([
+        [0,1,1,1,1,1,0],
+        [0,1,0,0,0,1,0],
+        [0,1,0,0,0,1,0],
+        [0,1,0,0,0,1,0],
+        [1,1,1,1,1,1,1],
+        [1,1,0,0,0,1,1],
+        [1,1,0,0,0,1,1],
+        [1,1,0,0,0,1,1],
+        [1,1,1,1,1,1,1]
+    ]),
+    '9': np.array([
+        [0,1,1,1,1,1,1],
+        [0,1,0,0,0,0,1],
+        [0,1,0,0,0,0,1],
+        [0,1,0,0,0,0,1],
+        [0,1,1,1,1,1,1],
+        [0,0,0,0,0,1,1],
+        [0,0,0,0,0,1,1],
+        [0,0,0,0,0,1,1],
+        [0,0,0,0,0,1,1]
+    ]),
+    }
+        return templates
+    
+    def avgColor(self, top_left, bottom_right):
+
         global data
-        visited = np.zeros_like(data, dtype=bool)
-        components = []
+        
+        x1 = top_left[0]
+        y1 = top_left[1]
+        x2 = bottom_right[0]
+        y2 = bottom_right[1]
+        
+        rectangle_area = data[y1:y2, x1:x2]
+        
+        average_color = np.mean(rectangle_area, axis=(0, 1))
+        
+        return average_color
 
-        for y in range(height):
-            for x in range(width):
-                if data[y, x] == 1 and not visited[y, x]:
-                    # เริ่มต้น BFS
-                    queue = [(y, x)]
-                    visited[y, x] = True
-                    component = []
+    def match_character(self, char_image, templates):
+        best_match = None
+        best_score = -1
 
-                    while queue:
-                        cy, cx = queue.pop(0)
-                        component.append((cy, cx))
+        for char, template in templates.items():
 
-                        # ตรวจสอบ 8-connected neighbors
-                        for dy in [-1, 0, 1]:
-                            for dx in [-1, 0, 1]:
-                                ny, nx = cy + dy, cx + dx
-                                if 0 <= ny < height and 0 <= nx < width:
-                                    if binary_image[ny, nx] == 1 and not visited[ny, nx]:
-                                        queue.append((ny, nx))
-                                        visited[ny, nx] = True
-                    components.append(component)
-        return components
+            # คำนวณความคล้ายคลึงโดยนับจำนวนพิกเซลที่ตรงกัน
+            score = np.sum(char_image == template)
+            
+            if score > best_score:
+                best_score = score
+                best_match = char
 
-    def get_bounding_box(component):
-        ys = [p[0] for p in component]
-        xs = [p[1] for p in component]
-        return (min(ys), min(xs), max(ys), max(xs))
-
-    def segment_characters(self):
-        global data
-        components = self.find_connected_components(data)
-        bounding_boxes = [self.get_bounding_box(comp) for comp in components]
-        # อาจจะต้องเรียงลำดับ bounding boxes จากซ้ายไปขวา
-        bounding_boxes.sort(key=lambda box: box[1])
-        return bounding_boxes
+        return best_match
